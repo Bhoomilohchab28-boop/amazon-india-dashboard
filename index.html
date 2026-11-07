@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amazon India Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#0f1b2d;--mu:#6b7a90;--pr:#1637ff;--bd:#e3e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:#fff;border-bottom:4px solid;border-image:linear-gradient(90deg,#16b8f3,#1637ff,#a030e0) 1;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+h1{margin:0;font-size:22px}.sub{color:var(--mu);font-size:13px}
+nav{display:flex;gap:8px;padding:14px 24px;flex-wrap:wrap}
+nav button{border:1px solid var(--bd);background:#fff;padding:9px 16px;border-radius:20px;cursor:pointer;font-size:14px}
+nav button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+main{padding:0 24px 30px}.sec{display:none}.sec.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.k small{color:var(--mu);font-size:12px}.k b{display:block;font-size:22px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.c h3{margin:0 0 8px;font-size:15px}.c.w{grid-column:1/-1}canvas{max-height:300px}
+.ins{background:#eef2ff;border-left:4px solid var(--pr);padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:14px}
+.bar{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--mu)}
+</style></head><body>
+<header><div><h1>Amazon India Dashboard</h1><div class="sub" id="src"></div></div>
+<div class="bar"><span>Load your dataset (CSV):</span><input type="file" id="f" accept=".csv"><button onclick="load(sample())">Use sample data</button></div></header>
+<nav id="nav"></nav>
+<main>
+<section class="sec" id="s0"><div class="ins" id="i0"></div><div class="kpis" id="k0"></div><div class="grid"><div class="c w"><h3>Monthly Sales &amp; Profit Trend</h3><canvas id="c_trend"></canvas></div></div></section>
+<section class="sec" id="s1"><div class="ins" id="i1"></div><div class="grid">
+<div class="c"><h3>Category-wise Sales</h3><canvas id="c_cs"></canvas></div><div class="c"><h3>Category-wise Profit</h3><canvas id="c_cp"></canvas></div>
+<div class="c"><h3>Category-wise Units Sold</h3><canvas id="c_cu"></canvas></div><div class="c"><h3>Top 10 Products by Sales</h3><canvas id="c_top"></canvas></div></div></section>
+<section class="sec" id="s2"><div class="ins" id="i2"></div><div class="kpis" id="k2"></div><div class="grid">
+<div class="c"><h3>Order Status Split</h3><canvas id="c_st"></canvas></div><div class="c"><h3>Category-wise Returns &amp; Cancellations</h3><canvas id="c_rc"></canvas></div></div></section>
+<section class="sec" id="s3"><div class="ins" id="i3"></div><div class="grid">
+<div class="c"><h3>Sales by Payment Method</h3><canvas id="c_ps"></canvas></div><div class="c"><h3>Profit by Payment Method</h3><canvas id="c_pp"></canvas></div>
+<div class="c"><h3>Sales by Fulfillment Method</h3><canvas id="c_fs"></canvas></div><div class="c"><h3>Profit by Fulfillment Method</h3><canvas id="c_fp"></canvas></div>
+<div class="c w"><h3>State-wise Sales &amp; Profit (Top 15)</h3><canvas id="c_ss"></canvas></div><div class="c w"><h3>State-wise Orders (Top 15)</h3><canvas id="c_so"></canvas></div></div></section>
+</main>
+<script>
+const NAMES=['Overall Performance','Category & Products','Order Status','Payment, Fulfillment & Geography'];
+const AL={date:['order date','date','orderdate','order_date'],cat:['category','product category'],prod:['product','product name','item','product_name'],qty:['quantity','units','units sold','qty','units_sold'],sales:['total_sales_inr','sales','revenue','total sales','total amount','amount'],profit:['profit_inr','profit'],status:['order status','status','order_status'],pay:['payment method','payment','payment mode','payment_method'],ful:['fulfillment','fulfilment','fulfillment method','fulfilment method','fulfillment_method'],state:['ship_state','state','ship state','shipping state','ship-state'],id:['order id','orderid','order_id']};
+const COL=['#1637ff','#16b8f3','#a030e0','#ff9900','#12b886','#f03e3e','#868e96','#fab005'];
+let D=[],CH={};
+const nav=document.getElementById('nav');
+NAMES.forEach((n,i)=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>show(i);nav.appendChild(b)});
+function show(i){document.querySelectorAll('.sec').forEach((s,j)=>s.classList.toggle('on',i==j));[...nav.children].forEach((b,j)=>b.classList.toggle('on',i==j))}
+function parseCSV(t){const r=[];let row=[],c='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch==','){row.push(c);c=''}else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;row.push(c);c='';if(row.length>1||row[0])r.push(row);row=[]}else c+=ch}if(c||row.length){row.push(c);r.push(row)}return r}
+function normalize(rows){const h=rows[0].map(x=>x.trim().toLowerCase());const ix={};for(const k in AL){ix[k]=h.findIndex(x=>AL[k].includes(x))}
+const miss=['date','sales','profit','status','cat'].filter(k=>ix[k]<0);if(miss.length){alert('Could not find columns for: '+miss.join(', ')+'\nFound: '+h.join(', '));return null}
+const g=(r,k,d)=>ix[k]>=0?(r[ix[k]]||'').trim()||d:d,n=v=>parseFloat(String(v).replace(/[^0-9.\-]/g,''))||0;
+return rows.slice(1).map((r,i)=>{let dt=new Date(g(r,'date',''));if(isNaN(dt)){const m=g(r,'date','').match(/(\d+)[\/\-](\d+)[\/\-](\d+)/);if(m)dt=new Date(+m[3],+m[2]-1,+m[1])}
+const s=g(r,'status','Delivered').toLowerCase();const st=/cancel/.test(s)?'Cancelled':/return/.test(s)?'Returned':/ship/.test(s)?'Shipped':'Delivered';
+return{id:g(r,'id',i),m:isNaN(dt)?'Unknown':dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'),cat:g(r,'cat','Other'),prod:g(r,'prod','Unknown'),qty:ix.qty>=0?n(r[ix.qty]):1,sales:n(r[ix.sales]),profit:n(r[ix.profit]),st,pay:g(r,'pay','Unknown'),ful:g(r,'ful','Unknown'),state:g(r,'state','Unknown')}}).filter(r=>r.m!='Unknown'||r.sales)}
+document.getElementById('f').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const d=normalize(parseCSV(rd.result));if(d){load(d,f.name)}};rd.readAsText(f)};
+function sample(){let s=42;const R=()=>(s=(s*16807)%2147483647)/2147483647;const P={Electronics:['Wireless Earbuds','Smartphone','Smart Watch','Power Bank','Bluetooth Speaker'],Fashion:['Running Shoes','Men T-Shirt','Kurti Set','Denim Jeans'],'Home & Kitchen':['Air Fryer','Mixer Grinder','Water Bottle','Bedsheet Set'],Books:['Atomic Habits','Python Crash Course','Rich Dad Poor Dad'],Beauty:['Face Serum','Sunscreen SPF50','Hair Dryer']};const price={Electronics:3500,Fashion:1100,'Home & Kitchen':2000,Books:350,Beauty:600};const mg={Electronics:.09,Fashion:.22,'Home & Kitchen':.16,Books:.28,Beauty:.25};
+const ST=['Maharashtra','Karnataka','Tamil Nadu','Delhi','Uttar Pradesh','Telangana','Gujarat','West Bengal','Rajasthan','Kerala','Madhya Pradesh','Chhattisgarh','Punjab','Haryana','Bihar','Odisha'];const out=[];
+for(let i=0;i<4000;i++){const cats=Object.keys(P),cat=cats[Math.floor(R()**1.3*cats.length)],pr=P[cat][Math.floor(R()*P[cat].length)],mo=Math.floor(R()*12),q=1+Math.floor(R()*3),sales=Math.round(price[cat]*(.6+R()*.9)*q*(1+mo*.03)),x=R(),st=x<.08?'Cancelled':x<.17?'Returned':x<.3?'Shipped':'Delivered';
+out.push({id:i,m:(mo<3?'2026-':'2025-')+String(((mo+9)%12)+1).padStart(2,'0'),cat,prod:pr,qty:q,sales,profit:Math.round(sales*(mg[cat]+(R()-.5)*.1)),st,pay:['UPI','Credit Card','Debit Card','Cash on Delivery','Net Banking'][Math.floor(R()**1.4*5)],ful:R()<.62?'Amazon Fulfilled':'Merchant Fulfilled',state:ST[Math.floor(R()**1.6*ST.length)]})}return out}
+const sum=(a,f)=>a.reduce((t,r)=>t+f(r),0);
+function grp(a,k,f){const m={};a.forEach(r=>m[r[k]]=(m[r[k]]||0)+f(r));return Object.entries(m).sort((x,y)=>y[1]-x[1])}
+const inr=v=>'₹'+(v>=1e7?(v/1e7).toFixed(2)+' Cr':v>=1e5?(v/1e5).toFixed(2)+' L':Math.round(v).toLocaleString('en-IN'));
+const pc=(a,b)=>b?(a/b*100).toFixed(1)+'%':'0%';
+function ch(id,type,labels,sets,opt={}){if(CH[id])CH[id].destroy();CH[id]=new Chart(document.getElementById(id),{type,data:{labels,datasets:sets},options:Object.assign({responsive:true,plugins:{legend:{display:sets.length>1||type=='doughnut'}}},opt)})}
+const bar=(id,e,lbl,h,money=true)=>ch(id,'bar',e.map(x=>x[0]),[{label:lbl,data:e.map(x=>x[1]),backgroundColor:COL[0]}],{indexAxis:h?'y':'x',plugins:{legend:{display:false}}});
+const kp=(l,v)=>`<div class="k"><small>${l}</small><b>${v}</b></div>`;
+function load(d,name){D=d;document.getElementById('src').textContent=name?'Source: '+name+' ('+d.length.toLocaleString()+' rows)':'Showing built-in sample data — upload your CSV above';render();show(0)}
+function render(){
+const live=D.filter(r=>r.st!='Cancelled'),S=sum(live,r=>r.sales),P=sum(live,r=>r.profit),O=live.length,U=sum(live,r=>r.qty);
+document.getElementById('k0').innerHTML=kp('Total Sales',inr(S))+kp('Total Profit',inr(P))+kp('Total Orders',O.toLocaleString())+kp('Units Sold',U.toLocaleString())+kp('Avg Order Value',inr(S/(O||1)))+kp('Profit Margin',pc(P,S));
+const ms=grp(live,'m',r=>r.sales).sort((a,b)=>a[0]<b[0]?-1:1),mp=Object.fromEntries(grp(live,'m',r=>r.profit));
+const n=ms.length,h=n>1?(ms[n-1][1]>=ms[0][1]?'up':'down'):'flat';
+document.getElementById('i0').textContent=`Sales and profit exclude cancelled orders. Monthly sales moved ${h} between ${ms[0]?.[0]} and ${ms[n-1]?.[0]}; overall margin is ${pc(P,S)}.`;
+ch('c_trend','line',ms.map(x=>x[0]),[{label:'Sales',data:ms.map(x=>x[1]),borderColor:COL[0],tension:.3},{label:'Profit',data:ms.map(x=>mp[x[0]]),borderColor:COL[4],tension:.3}]);
+const cs=grp(live,'cat',r=>r.sales),cp=grp(live,'cat',r=>r.profit),cu=grp(live,'cat',r=>r.qty),tp=grp(live,'prod',r=>r.sales).slice(0,10);
+const cm=cp.map(x=>[x[0],x[1]/(cs.find(y=>y[0]==x[0])[1]||1)]).sort((a,b)=>a[1]-b[1])[0];
+document.getElementById('i1').textContent=`Top category by sales: ${cs[0]?.[0]}. Top product: ${tp[0]?.[0]}. Lowest margin: ${cm?.[0]} (${(cm?.[1]*100).toFixed(1)}%) — may need attention.`;
+bar('c_cs',cs,'Sales');bar('c_cp',cp,'Profit');bar('c_cu',cu,'Units');bar('c_top',tp,'Sales',true);
+const c=s=>D.filter(r=>r.st==s).length,T=D.length;
+document.getElementById('k2').innerHTML=kp('Delivered',c('Delivered').toLocaleString())+kp('Shipped',c('Shipped').toLocaleString())+kp('Returned',c('Returned').toLocaleString())+kp('Cancelled',c('Cancelled').toLocaleString())+kp('Return Rate',pc(c('Returned'),T))+kp('Cancellation Rate',pc(c('Cancelled'),T));
+const lost=sum(D.filter(r=>r.st=='Cancelled'||r.st=='Returned'),r=>r.sales);
+document.getElementById('i2').textContent=`Returns and cancellations represent ${inr(lost)} of order value (${pc(c('Returned')+c('Cancelled'),T)} of all orders).`;
+ch('c_st','doughnut',['Delivered','Shipped','Returned','Cancelled'],[{data:['Delivered','Shipped','Returned','Cancelled'].map(c),backgroundColor:[COL[4],COL[1],COL[3],COL[5]]}]);
+const cats=[...new Set(D.map(r=>r.cat))];
+ch('c_rc','bar',cats,[{label:'Returned',data:cats.map(k=>D.filter(r=>r.cat==k&&r.st=='Returned').length),backgroundColor:COL[3]},{label:'Cancelled',data:cats.map(k=>D.filter(r=>r.cat==k&&r.st=='Cancelled').length),backgroundColor:COL[5]}]);
+const pS=grp(live,'pay',r=>r.sales),pP=grp(live,'pay',r=>r.profit),fS=grp(live,'ful',r=>r.sales),fP=grp(live,'ful',r=>r.profit);
+const ss=grp(live,'state',r=>r.sales).slice(0,15),sp=Object.fromEntries(grp(live,'state',r=>r.profit)),so=grp(live,'state',()=>1).slice(0,15);
+document.getElementById('i3').textContent=`Leading state: ${ss[0]?.[0]}. Most-used payment method: ${pS[0]?.[0]}. Top fulfillment channel: ${fS[0]?.[0]}.`;
+bar('c_ps',pS,'Sales');bar('c_pp',pP,'Profit');bar('c_fs',fS,'Sales');bar('c_fp',fP,'Profit');
+ch('c_ss','bar',ss.map(x=>x[0]),[{label:'Sales',data:ss.map(x=>x[1]),backgroundColor:COL[0]},{label:'Profit',data:ss.map(x=>sp[x[0]]),backgroundColor:COL[4]}]);
+bar('c_so',so,'Orders');
+}
+load(sample());
+</script></body></html>
